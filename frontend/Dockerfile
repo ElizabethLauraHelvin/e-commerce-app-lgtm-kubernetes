@@ -33,6 +33,10 @@ WORKDIR /app
 
 COPY --from=builder /app/dist ./dist
 
+# Runtime config script - generates config.js from env vars at startup
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 3000
 
-CMD ["serve", "-s", "dist", "-l", "3000"]
+ENTRYPOINT ["/app/entrypoint.sh"]

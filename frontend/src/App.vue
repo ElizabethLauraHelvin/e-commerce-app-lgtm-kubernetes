@@ -151,7 +151,9 @@
 <script>
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://20.195.98.198:8080/api'
+// Runtime config from window.__CONFIG__ (injected by entrypoint.sh) 
+// Falls back to VITE env var, then to hardcoded default
+const API_URL = (window.__CONFIG__ && window.__CONFIG__.API_URL) || import.meta.env.VITE_API_URL || 'http://4.144.133.123:8080/api'
 
 export default {
   name: 'App',
