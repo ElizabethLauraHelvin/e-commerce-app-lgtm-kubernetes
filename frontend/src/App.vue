@@ -1,162 +1,163 @@
 <template>
   <div id="app">
-    <!-- Header -->
-    <header class="header">
-      <h1>🛍️ E-Commerce Platform</h1>
-      <nav class="nav">
-        <button
-          v-for="page in pages"
-          :key="page.key"
-          :class="['nav-btn', { active: currentPage === page.key }]"
-          @click="currentPage = page.key"
-        >
-          {{ page.label }}
-        </button>
-      </nav>
-    </header>
+    <!-- Login/Register Page -->
+    <div v-if="!user" class="auth-page">
+      <div class="auth-container">
+        <div class="auth-brand">
+          <h1>🛒 ShopHub</h1>
+          <p>Your one-stop online shop</p>
+        </div>
+        <div class="auth-form">
+          <div class="auth-tabs">
+            <button :class="{ active: authMode === 'login' }" @click="authMode = 'login'">Login</button>
+            <button :class="{ active: authMode === 'register' }" @click="authMode = 'register'">Register</button>
+          </div>
+          <form @submit.prevent="handleAuth">
+            <input v-if="authMode === 'register'" v-model="authForm.name" type="text" placeholder="Full Name" required />
+            <input v-model="authForm.email" type="email" placeholder="Email" required />
+            <input v-model="authForm.password" type="password" placeholder="Password" required />
+            <button type="submit" class="btn-primary" :disabled="authLoading">
+              {{ authLoading ? 'Please wait...' : (authMode === 'login' ? 'Sign In' : 'Create Account') }}
+            </button>
+          </form>
+          <p v-if="authError" class="auth-error">{{ authError }}</p>
+          <p class="auth-hint">Demo: demo@shop.com / demo123</p>
+        </div>
+      </div>
+    </div>
 
-    <!-- Main Content -->
-    <main class="main">
-      <div v-if="loading" class="loading">Loading...</div>
+    <!-- Main App -->
+    <div v-else class="shop">
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 @click="currentPage = 'products'">🛒 ShopHub</h1>
+        </div>
+        <div class="topbar-center">
+          <input v-model="searchQuery" type="text" placeholder="Search products..." class="search-input" />
+        </div>
+        <div class="topbar-right">
+          <button class="cart-btn" @click="currentPage = 'cart'">
+            🛒 <span v-if="cart.length" class="cart-badge">{{ cartItemCount }}</span>
+          </button>
+          <button class="orders-btn" @click="currentPage = 'orders'">📦 Orders</button>
+          <div class="user-menu">
+            <span>Hi, {{ user.name }}</span>
+            <button @click="logout" class="logout-btn">Logout</button>
+          </div>
+        </div>
+      </header>
 
       <!-- Products Page -->
-      <section v-if="currentPage === 'products'" class="section">
-        <div class="card">
-          <h2>Products</h2>
-          <div class="grid">
-            <div v-for="product in products" :key="product.id" class="item-card">
+      <main v-if="currentPage === 'products'" class="main-content">
+        <div class="categories">
+          <button :class="{ active: selectedCategory === 'All' }" @click="selectedCategory = 'All'">All</button>
+          <button v-for="cat in categories" :key="cat" :class="{ active: selectedCategory === cat }" @click="selectedCategory = cat">{{ cat }}</button>
+        </div>
+        <div class="products-grid">
+          <div v-for="product in filteredProducts" :key="product.id" class="product-card">
+            <div class="product-image">
+              <img :src="product.image" :alt="product.name" @error="handleImageError" />
+            </div>
+            <div class="product-info">
+              <span class="product-category">{{ product.category }}</span>
               <h3>{{ product.name }}</h3>
-              <p class="price">${{ product.price }}</p>
-              <p class="stock">Stock: {{ product.stock }}</p>
-              <button class="btn btn-primary" @click="addToOrder(product)">Add to Order</button>
+              <div class="product-footer">
+                <span class="product-price">${{ product.price.toFixed(2) }}</span>
+                <button class="add-cart-btn" @click="addToCart(product)" :disabled="product.stock === 0">
+                  {{ product.stock === 0 ? 'Out of Stock' : '+ Cart' }}
+                </button>
+              </div>
+              <span class="product-stock">{{ product.stock }} in stock</span>
             </div>
           </div>
-          <p v-if="products.length === 0 && !loading" class="empty">No products found</p>
         </div>
-      </section>
+      </main>
+
+      <!-- Cart Page -->
+      <main v-if="currentPage === 'cart'" class="main-content">
+        <h2>Shopping Cart</h2>
+        <div v-if="cart.length === 0" class="empty-state">
+          <p>Your cart is empty</p>
+          <button class="btn-primary" @click="currentPage = 'products'">Continue Shopping</button>
+        </div>
+        <div v-else class="cart-layout">
+          <div class="cart-items">
+            <div v-for="item in cart" :key="item.product.id" class="cart-item">
+              <img :src="item.product.image" :alt="item.product.name" @error="handleImageError" />
+              <div class="cart-item-info">
+                <h4>{{ item.product.name }}</h4>
+                <p class="cart-item-price">${{ item.product.price.toFixed(2) }}</p>
+              </div>
+              <div class="cart-item-qty">
+                <button @click="updateQty(item, -1)">-</button>
+                <span>{{ item.qty }}</span>
+                <button @click="updateQty(item, 1)">+</button>
+              </div>
+              <span class="cart-item-total">${{ (item.product.price * item.qty).toFixed(2) }}</span>
+              <button class="remove-btn" @click="removeFromCart(item)">✕</button>
+            </div>
+          </div>
+          <div class="cart-summary">
+            <h3>Order Summary</h3>
+            <div class="summary-row"><span>Subtotal</span><span>${{ cartTotal.toFixed(2) }}</span></div>
+            <div class="summary-row"><span>Shipping</span><span>Free</span></div>
+            <div class="summary-row total"><span>Total</span><span>${{ cartTotal.toFixed(2) }}</span></div>
+            <div class="payment-method">
+              <label>Payment Method</label>
+              <select v-model="paymentMethod">
+                <option value="credit_card">Credit Card</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="e_wallet">E-Wallet</option>
+              </select>
+            </div>
+            <button class="btn-checkout" @click="checkout" :disabled="checkoutLoading">
+              {{ checkoutLoading ? 'Processing...' : 'Checkout' }}
+            </button>
+          </div>
+        </div>
+      </main>
 
       <!-- Orders Page -->
-      <section v-if="currentPage === 'orders'" class="section">
-        <div class="card">
-          <h2>Orders</h2>
-          <div class="form-section">
-            <h3>Create New Order</h3>
-            <form @submit.prevent="createOrder" class="form">
-              <select v-model="newOrder.product_id" required>
-                <option value="">Select Product</option>
-                <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }} - ${{ p.price }}</option>
-              </select>
-              <input v-model.number="newOrder.quantity" type="number" min="1" placeholder="Quantity" required />
-              <button type="submit" class="btn btn-primary">Create Order</button>
-            </form>
-          </div>
-          <div class="table-container">
-            <table v-if="orders.length > 0">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Product ID</th>
-                  <th>Quantity</th>
-                  <th>Total</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="order in orders" :key="order.id">
-                  <td>{{ order.id }}</td>
-                  <td>{{ order.product_id }}</td>
-                  <td>{{ order.quantity }}</td>
-                  <td>${{ order.total?.toFixed(2) }}</td>
-                  <td><span :class="['status', order.status]">{{ order.status }}</span></td>
-                  <td>
-                    <button v-if="order.status === 'pending'" class="btn btn-small btn-success" @click="payOrder(order)">Pay Now</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-else class="empty">No orders found</p>
+      <main v-if="currentPage === 'orders'" class="main-content">
+        <h2>My Orders</h2>
+        <div v-if="orders.length === 0" class="empty-state">
+          <p>No orders yet</p>
+          <button class="btn-primary" @click="currentPage = 'products'">Start Shopping</button>
+        </div>
+        <div v-else class="orders-list">
+          <div v-for="order in orders" :key="order.id" class="order-card">
+            <div class="order-header">
+              <span class="order-id">{{ order.id }}</span>
+              <span :class="['order-status', order.status]">{{ order.status }}</span>
+            </div>
+            <div class="order-items">
+              <span v-for="item in order.items" :key="item.product_id" class="order-item-tag">
+                {{ item.name }} x{{ item.quantity }}
+              </span>
+            </div>
+            <div class="order-footer">
+              <span class="order-total">${{ order.total.toFixed(2) }}</span>
+              <span class="order-date">{{ formatDate(order.created_at) }}</span>
+            </div>
           </div>
         </div>
-      </section>
+      </main>
 
-      <!-- Payments Page -->
-      <section v-if="currentPage === 'payments'" class="section">
-        <div class="card">
-          <h2>Payments</h2>
-          <div class="table-container">
-            <table v-if="payments.length > 0">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Order ID</th>
-                  <th>Amount</th>
-                  <th>Method</th>
-                  <th>Status</th>
-                  <th>Transaction ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="payment in payments" :key="payment.id">
-                  <td>{{ payment.id }}</td>
-                  <td>{{ payment.order_id }}</td>
-                  <td>${{ payment.amount?.toFixed(2) }}</td>
-                  <td>{{ payment.method }}</td>
-                  <td><span :class="['status', payment.status]">{{ payment.status }}</span></td>
-                  <td>{{ payment.transaction_id || '-' }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-else class="empty">No payments found</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Users Page -->
-      <section v-if="currentPage === 'users'" class="section">
-        <div class="card">
-          <h2>Users</h2>
-          <div class="table-container">
-            <table v-if="users.length > 0">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="user in users" :key="user.id">
-                  <td>{{ user.id }}</td>
-                  <td>{{ user.name }}</td>
-                  <td>{{ user.email }}</td>
-                  <td><span :class="['role', user.role]">{{ user.role }}</span></td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-else class="empty">No users found</p>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <!-- Notification -->
-    <div v-if="notification" :class="['notification', notification.type]">
-      {{ notification.message }}
+      <!-- Notification -->
+      <div v-if="notification" :class="['toast', notification.type]">
+        {{ notification.message }}
+      </div>
     </div>
   </div>
 </template>
 
 <script>
 import axios from 'axios'
-import { initFaro } from './faro'
+import { initFaro, getFaro } from './faro'
 
-// Initialize Faro RUM
 initFaro()
 
-// Runtime config from window.__CONFIG__ (injected by entrypoint.sh) 
-// Falls back to VITE env var, then to hardcoded default
 const API_URL = (window.__CONFIG__ && window.__CONFIG__.API_URL) || import.meta.env.VITE_API_URL || 'http://4.144.133.123:8080/api'
 
 export default {
@@ -164,405 +165,268 @@ export default {
   data() {
     return {
       currentPage: 'products',
-      pages: [
-        { key: 'products', label: 'Products' },
-        { key: 'orders', label: 'Orders' },
-        { key: 'payments', label: 'Payments' },
-        { key: 'users', label: 'Users' }
-      ],
+      user: null,
+      authMode: 'login',
+      authForm: { name: '', email: '', password: '' },
+      authLoading: false,
+      authError: '',
       products: [],
+      cart: [],
       orders: [],
-      payments: [],
-      users: [],
-      loading: false,
+      searchQuery: '',
+      selectedCategory: 'All',
+      paymentMethod: 'credit_card',
+      checkoutLoading: false,
       notification: null,
-      newOrder: {
-        product_id: '',
-        quantity: 1
-      }
     }
   },
-  watch: {
-    currentPage(newPage) {
-      this.loadData(newPage)
-    }
+  computed: {
+    categories() {
+      return [...new Set(this.products.map(p => p.category))]
+    },
+    filteredProducts() {
+      return this.products.filter(p => {
+        const matchCategory = this.selectedCategory === 'All' || p.category === this.selectedCategory
+        const matchSearch = p.name.toLowerCase().includes(this.searchQuery.toLowerCase())
+        return matchCategory && matchSearch
+      })
+    },
+    cartItemCount() {
+      return this.cart.reduce((sum, item) => sum + item.qty, 0)
+    },
+    cartTotal() {
+      return this.cart.reduce((sum, item) => sum + item.product.price * item.qty, 0)
+    },
   },
   mounted() {
-    console.log('App mounted, API_URL:', API_URL)
-    this.loadData('products')
+    const saved = localStorage.getItem('shopUser')
+    if (saved) {
+      this.user = JSON.parse(saved)
+      this.loadProducts()
+      this.loadOrders()
+    }
   },
   methods: {
-    async loadData(page) {
-      this.loading = true
+    async handleAuth() {
+      this.authLoading = true
+      this.authError = ''
       try {
-        if (page === 'products') {
-          const res = await axios.get(`${API_URL}/products`)
-          this.products = res.data || []
-        } else if (page === 'orders') {
-          if (this.products.length === 0) {
-            const prodRes = await axios.get(`${API_URL}/products`)
-            this.products = prodRes.data || []
-          }
-          const res = await axios.get(`${API_URL}/orders`)
-          this.orders = res.data || []
-        } else if (page === 'payments') {
-          const res = await axios.get(`${API_URL}/payments`)
-          this.payments = res.data || []
-        } else if (page === 'users') {
-          const res = await axios.get(`${API_URL}/users`)
-          this.users = res.data || []
-        }
-      } catch (error) {
-        console.error(`Error loading ${page}:`, error)
-        this.showNotification(`Failed to load ${page}`, 'error')
+        const endpoint = this.authMode === 'login' ? '/auth/login' : '/auth/register'
+        const res = await axios.post(`${API_URL}${endpoint}`, this.authForm)
+        this.user = res.data.user
+        localStorage.setItem('shopUser', JSON.stringify(this.user))
+        this.loadProducts()
+        this.loadOrders()
+        getFaro()?.api.pushEvent('user_auth', { type: this.authMode, email: this.user.email })
+      } catch (err) {
+        this.authError = err.response?.data?.error || 'Authentication failed'
       } finally {
-        this.loading = false
+        this.authLoading = false
       }
     },
-
-    async createOrder() {
+    logout() {
+      this.user = null
+      this.cart = []
+      this.orders = []
+      localStorage.removeItem('shopUser')
+    },
+    async loadProducts() {
       try {
-        const product = this.products.find(p => String(p.id) === String(this.newOrder.product_id))
-        if (!product) {
-          this.showNotification('Please select a product', 'error')
-          return
-        }
-
+        const res = await axios.get(`${API_URL}/products`)
+        this.products = res.data || []
+      } catch (err) {
+        this.showNotification('Failed to load products', 'error')
+      }
+    },
+    async loadOrders() {
+      try {
+        const res = await axios.get(`${API_URL}/orders?user_id=${this.user.id}`)
+        this.orders = (res.data || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      } catch (err) {
+        console.error('Failed to load orders', err)
+      }
+    },
+    addToCart(product) {
+      const existing = this.cart.find(i => i.product.id === product.id)
+      if (existing) {
+        existing.qty++
+      } else {
+        this.cart.push({ product, qty: 1 })
+      }
+      this.showNotification(`${product.name} added to cart`, 'success')
+      getFaro()?.api.pushEvent('add_to_cart', { product_id: product.id, product_name: product.name })
+    },
+    updateQty(item, delta) {
+      item.qty += delta
+      if (item.qty <= 0) this.removeFromCart(item)
+    },
+    removeFromCart(item) {
+      this.cart = this.cart.filter(i => i.product.id !== item.product.id)
+    },
+    async checkout() {
+      this.checkoutLoading = true
+      try {
         const orderData = {
-          user_id: 'user1',
-          product_id: String(this.newOrder.product_id),
-          quantity: this.newOrder.quantity,
-          total: product.price * this.newOrder.quantity,
-          status: 'pending'
+          user_id: String(this.user.id),
+          items: this.cart.map(i => ({
+            product_id: i.product.id,
+            name: i.product.name,
+            price: i.product.price,
+            quantity: i.qty,
+          })),
         }
+        const orderRes = await axios.post(`${API_URL}/orders`, orderData)
+        const order = orderRes.data
 
-        await axios.post(`${API_URL}/orders`, orderData)
-        this.showNotification('Order created successfully!', 'success')
-        this.newOrder = { product_id: '', quantity: 1 }
-        this.loadData('orders')
-      } catch (error) {
-        console.error('Error creating order:', error)
-        this.showNotification('Failed to create order', 'error')
-      }
-    },
-
-    async payOrder(order) {
-      try {
-        const paymentData = {
-          order_id: parseInt(order.id),
+        await axios.post(`${API_URL}/payments`, {
+          order_id: order.id,
           amount: order.total,
-          method: 'credit_card'
-        }
+          method: this.paymentMethod,
+        })
 
-        await axios.post(`${API_URL}/payments`, paymentData)
-        this.showNotification('Payment processed successfully!', 'success')
-        this.loadData('orders')
-      } catch (error) {
-        console.error('Error processing payment:', error)
-        this.showNotification('Failed to process payment', 'error')
+        await axios.patch(`${API_URL}/orders/${order.id}`, { status: 'paid' })
+
+        getFaro()?.api.pushEvent('checkout_completed', { order_id: order.id, total: String(order.total) })
+        this.cart = []
+        this.showNotification('Order placed successfully!', 'success')
+        this.currentPage = 'orders'
+        this.loadOrders()
+      } catch (err) {
+        this.showNotification('Checkout failed: ' + (err.response?.data?.error || err.message), 'error')
+      } finally {
+        this.checkoutLoading = false
       }
     },
-
-    addToOrder(product) {
-      this.newOrder.product_id = String(product.id)
-      this.newOrder.quantity = 1
-      this.currentPage = 'orders'
-      this.showNotification(`Added ${product.name} to order form`, 'success')
-    },
-
     showNotification(message, type) {
       this.notification = { message, type }
-      setTimeout(() => {
-        this.notification = null
-      }, 3000)
-    }
-  }
+      setTimeout(() => { this.notification = null }, 3000)
+    },
+    formatDate(d) {
+      return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    },
+    handleImageError(e) {
+      e.target.src = 'https://placehold.co/200x200?text=Product'
+    },
+  },
 }
 </script>
 
 <style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-height: 100vh;
-}
+/* Auth */
+.auth-page { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.auth-container { background: white; border-radius: 16px; overflow: hidden; width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.auth-brand { padding: 40px; text-align: center; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
+.auth-brand h1 { font-size: 2em; }
+.auth-brand p { opacity: 0.9; margin-top: 8px; }
+.auth-form { padding: 30px; }
+.auth-tabs { display: flex; margin-bottom: 20px; }
+.auth-tabs button { flex: 1; padding: 10px; border: none; background: #f0f0f0; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+.auth-tabs button.active { background: #667eea; color: white; }
+.auth-tabs button:first-child { border-radius: 8px 0 0 8px; }
+.auth-tabs button:last-child { border-radius: 0 8px 8px 0; }
+.auth-form form { display: flex; flex-direction: column; gap: 12px; }
+.auth-form input { padding: 12px 16px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+.auth-form input:focus { outline: none; border-color: #667eea; }
+.btn-primary { padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
+.btn-primary:hover { background: #5a6fd6; }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.auth-error { color: #e74c3c; text-align: center; margin-top: 12px; font-size: 14px; }
+.auth-hint { color: #999; text-align: center; margin-top: 12px; font-size: 12px; }
 
-#app {
-  min-height: 100vh;
-}
+/* Topbar */
+.topbar { display: flex; align-items: center; padding: 12px 24px; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 100; }
+.topbar-left h1 { font-size: 1.4em; cursor: pointer; color: #667eea; }
+.topbar-center { flex: 1; max-width: 400px; margin: 0 24px; }
+.search-input { width: 100%; padding: 10px 16px; border: 1px solid #e0e0e0; border-radius: 24px; font-size: 14px; }
+.search-input:focus { outline: none; border-color: #667eea; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.cart-btn, .orders-btn { background: none; border: none; font-size: 16px; cursor: pointer; padding: 8px 12px; border-radius: 8px; position: relative; }
+.cart-btn:hover, .orders-btn:hover { background: #f0f0f0; }
+.cart-badge { position: absolute; top: 0; right: 0; background: #e74c3c; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+.user-menu { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.logout-btn { background: none; border: 1px solid #ddd; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.logout-btn:hover { background: #fee; border-color: #e74c3c; color: #e74c3c; }
 
-.header {
-  background: rgba(255, 255, 255, 0.95);
-  padding: 20px 40px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
+/* Main */
+.main-content { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+.main-content h2 { margin-bottom: 20px; font-size: 1.5em; }
 
-.header h1 {
-  color: #667eea;
-  margin-bottom: 15px;
-  font-size: 2em;
-}
+/* Categories */
+.categories { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+.categories button { padding: 8px 16px; border: 1px solid #e0e0e0; border-radius: 20px; background: white; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+.categories button.active { background: #667eea; color: white; border-color: #667eea; }
+.categories button:hover { border-color: #667eea; }
 
-.nav {
-  display: flex;
-  gap: 10px;
-}
+/* Products Grid */
+.products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+.product-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: transform 0.2s, box-shadow 0.2s; }
+.product-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+.product-image { height: 180px; background: #f8f8f8; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.product-image img { max-width: 80%; max-height: 80%; object-fit: contain; }
+.product-info { padding: 16px; }
+.product-category { font-size: 11px; color: #667eea; font-weight: 600; text-transform: uppercase; }
+.product-info h3 { font-size: 14px; margin: 6px 0; color: #333; line-height: 1.3; }
+.product-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+.product-price { font-size: 18px; font-weight: 700; color: #e74c3c; }
+.product-stock { font-size: 11px; color: #999; margin-top: 6px; display: block; }
+.add-cart-btn { padding: 6px 14px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.add-cart-btn:hover { background: #5a6fd6; }
+.add-cart-btn:disabled { background: #ccc; cursor: not-allowed; }
 
-.nav-btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 25px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
-  transition: all 0.3s;
-  background: #e8eaf6;
-  color: #333;
-}
+/* Cart */
+.cart-layout { display: grid; grid-template-columns: 1fr 350px; gap: 24px; }
+.cart-items { display: flex; flex-direction: column; gap: 12px; }
+.cart-item { display: flex; align-items: center; gap: 16px; background: white; padding: 16px; border-radius: 12px; }
+.cart-item img { width: 60px; height: 60px; object-fit: contain; border-radius: 8px; background: #f8f8f8; }
+.cart-item-info { flex: 1; }
+.cart-item-info h4 { font-size: 14px; }
+.cart-item-price { color: #666; font-size: 13px; }
+.cart-item-qty { display: flex; align-items: center; gap: 8px; }
+.cart-item-qty button { width: 28px; height: 28px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 16px; }
+.cart-item-qty button:hover { background: #f0f0f0; }
+.cart-item-total { font-weight: 700; min-width: 80px; text-align: right; }
+.remove-btn { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 18px; padding: 4px; }
+.cart-summary { background: white; padding: 24px; border-radius: 12px; height: fit-content; position: sticky; top: 80px; }
+.cart-summary h3 { margin-bottom: 16px; }
+.summary-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; color: #666; }
+.summary-row.total { border-top: 2px solid #eee; margin-top: 8px; padding-top: 12px; font-size: 18px; font-weight: 700; color: #333; }
+.payment-method { margin-top: 16px; }
+.payment-method label { font-size: 13px; color: #666; display: block; margin-bottom: 6px; }
+.payment-method select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+.btn-checkout { width: 100%; padding: 14px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 16px; }
+.btn-checkout:hover { background: #219a52; }
+.btn-checkout:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.nav-btn:hover {
-  background: #667eea;
-  color: white;
-}
+/* Orders */
+.orders-list { display: flex; flex-direction: column; gap: 12px; }
+.order-card { background: white; padding: 20px; border-radius: 12px; }
+.order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.order-id { font-weight: 700; font-size: 14px; }
+.order-status { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+.order-status.pending { background: #fff3cd; color: #856404; }
+.order-status.paid { background: #d4edda; color: #155724; }
+.order-status.completed { background: #cce5ff; color: #004085; }
+.order-items { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.order-item-tag { background: #f0f0f0; padding: 4px 10px; border-radius: 12px; font-size: 12px; }
+.order-footer { display: flex; justify-content: space-between; align-items: center; }
+.order-total { font-weight: 700; font-size: 16px; color: #e74c3c; }
+.order-date { color: #999; font-size: 13px; }
 
-.nav-btn.active {
-  background: #667eea;
-  color: white;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.main {
-  padding: 40px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.card {
-  background: white;
-  border-radius: 16px;
-  padding: 30px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-}
-
-.card h2 {
-  color: #667eea;
-  margin-bottom: 20px;
-  font-size: 1.5em;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
-}
-
-.item-card {
-  border: 2px solid #e8eaf6;
-  border-left: 4px solid #667eea;
-  border-radius: 12px;
-  padding: 20px;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.item-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.item-card h3 {
-  color: #333;
-  margin-bottom: 8px;
-}
-
-.price {
-  color: #667eea;
-  font-weight: 600;
-  font-size: 1.1em;
-}
-
-.stock {
-  color: #666;
-  font-size: 0.9em;
-  margin-bottom: 12px;
-}
-
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.btn-primary {
-  background: #667eea;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #5a6fd6;
-}
-
-.btn-success {
-  background: #4caf50;
-  color: white;
-}
-
-.btn-success:hover {
-  background: #43a047;
-}
-
-.btn-small {
-  padding: 6px 12px;
-  font-size: 12px;
-}
-
-.form-section {
-  background: #f8f9ff;
-  padding: 20px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-}
-
-.form-section h3 {
-  margin-bottom: 12px;
-  color: #333;
-}
-
-.form {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.form select,
-.form input {
-  padding: 10px 15px;
-  border: 2px solid #e8eaf6;
-  border-radius: 8px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.3s;
-}
-
-.form select:focus,
-.form input:focus {
-  border-color: #667eea;
-}
-
-.table-container {
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-}
-
-th, td {
-  padding: 12px 15px;
-  text-align: left;
-  border-bottom: 1px solid #e8eaf6;
-}
-
-th {
-  background: #f8f9ff;
-  color: #333;
-  font-weight: 600;
-}
-
-tr:hover {
-  background: #f8f9ff;
-}
-
-.status {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.status.completed {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.status.pending {
-  background: #fff3e0;
-  color: #ef6c00;
-}
-
-.role {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.role.admin {
-  background: #fce4ec;
-  color: #c62828;
-}
-
-.role.customer {
-  background: #e3f2fd;
-  color: #1565c0;
-}
-
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: white;
-  font-size: 1.2em;
-}
-
-.empty {
-  text-align: center;
-  color: #999;
-  padding: 20px;
-}
-
-.notification {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  padding: 15px 25px;
-  border-radius: 10px;
-  color: white;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  animation: slideIn 0.3s ease;
-  z-index: 1000;
-}
-
-.notification.success {
-  background: #4caf50;
-}
-
-.notification.error {
-  background: #f44336;
-}
-
-@keyframes slideIn {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
+/* Empty & Toast */
+.empty-state { text-align: center; padding: 60px; color: #999; }
+.empty-state p { margin-bottom: 16px; font-size: 16px; }
+.toast { position: fixed; bottom: 24px; right: 24px; padding: 14px 24px; border-radius: 8px; color: white; font-weight: 500; z-index: 999; animation: slideIn 0.3s ease; }
+.toast.success { background: #27ae60; }
+.toast.error { background: #e74c3c; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
 @media (max-width: 768px) {
-  .header { padding: 15px 20px; }
-  .main { padding: 20px; }
-  .nav { flex-wrap: wrap; }
-  .form { flex-direction: column; }
+  .topbar { flex-wrap: wrap; gap: 8px; }
+  .topbar-center { order: 3; max-width: 100%; margin: 0; flex-basis: 100%; }
+  .cart-layout { grid-template-columns: 1fr; }
+  .products-grid { grid-template-columns: repeat(2, 1fr); }
 }
 </style>

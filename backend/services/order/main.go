@@ -8,57 +8,109 @@ import (
 	"time"
 )
 
-type Order struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	ProductID string    `json:"product_id"`
-	Quantity  int       `json:"quantity"`
-	Total     float64   `json:"total"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+type OrderItem struct {
+	ProductID string  `json:"product_id"`
+	Name      string  `json:"name"`
+	Price     float64 `json:"price"`
+	Quantity  int     `json:"quantity"`
 }
 
-var orders = []Order{
-	{ID: "1", UserID: "user1", ProductID: "1", Quantity: 1, Total: 999.99, Status: "completed", CreatedAt: time.Now()},
-	{ID: "2", UserID: "user2", ProductID: "2", Quantity: 2, Total: 59.98, Status: "pending", CreatedAt: time.Now()},
+type Order struct {
+	ID        string      `json:"id"`
+	UserID    string      `json:"user_id"`
+	Items     []OrderItem `json:"items"`
+	Total     float64     `json:"total"`
+	Status    string      `json:"status"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
+var orders []Order
+var orderCounter = 0
+
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		log.Printf("[REQUEST] method=%s path=%s remote=%s", r.Method, r.URL.Path, r.RemoteAddr)
+		next.ServeHTTP(w, r)
+		log.Printf("[RESPONSE] method=%s path=%s duration=%s", r.Method, r.URL.Path, time.Since(start))
+	})
 }
 
 func main() {
 	mux := http.NewServeMux()
 
-	// Health check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, `{"status":"healthy","service":"order-service"}`)
 	})
 
-	// Get all orders or Create order (POST)
 	mux.HandleFunc("/orders", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
 		if r.Method == http.MethodPost {
 			var order Order
 			if err := json.NewDecoder(r.Body).Decode(&order); err != nil {
+				log.Printf("[ORDER] Create failed: %v", err)
 				w.WriteHeader(http.StatusBadRequest)
 				fmt.Fprintf(w, `{"error":"invalid request"}`)
 				return
 			}
-			order.ID = fmt.Sprintf("%d", len(orders)+1)
+			orderCounter++
+			order.ID = fmt.Sprintf("ORD-%05d", orderCounter)
 			order.CreatedAt = time.Now()
-			if order.Status == "" {
-				order.Status = "pending"
+			order.Status = "pending"
+
+			var total float64
+			for _, item := range order.Items {
+				total += item.Price * float64(item.Quantity)
 			}
+			order.Total = total
+
 			orders = append(orders, order)
+			log.Printf("[ORDER] Created order=%s user=%s items=%d total=%.2f", order.ID, order.UserID, len(order.Items), order.Total)
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(order)
 			return
 		}
+
+		// GET - return orders, optionally filter by user_id
+		userID := r.URL.Query().Get("user_id")
+		if userID != "" {
+			var userOrders []Order
+			for _, o := range orders {
+				if o.UserID == userID {
+					userOrders = append(userOrders, o)
+				}
+			}
+			log.Printf("[ORDER] Listing orders for user=%s count=%d", userID, len(userOrders))
+			json.NewEncoder(w).Encode(userOrders)
+			return
+		}
+
+		log.Printf("[ORDER] Listing all orders count=%d", len(orders))
 		json.NewEncoder(w).Encode(orders)
 	})
 
-	// Get order by ID
 	mux.HandleFunc("/orders/", func(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Path[len("/orders/"):]
+
+		// PATCH to update status
+		if r.Method == http.MethodPatch {
+			var update struct {
+				Status string `json:"status"`
+			}
+			json.NewDecoder(r.Body).Decode(&update)
+			for i, o := range orders {
+				if o.ID == id {
+					orders[i].Status = update.Status
+					log.Printf("[ORDER] Updated order=%s status=%s", id, update.Status)
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode(orders[i])
+					return
+				}
+			}
+		}
+
 		for _, o := range orders {
 			if o.ID == id {
 				w.Header().Set("Content-Type", "application/json")
@@ -70,29 +122,6 @@ func main() {
 		fmt.Fprintf(w, `{"error":"order not found"}`)
 	})
 
-	// Create order
-	mux.HandleFunc("/orders/create", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-
-		var order Order
-		if err := json.NewDecoder(r.Body).Decode(&order); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, `{"error":"invalid request"}`)
-			return
-		}
-
-		order.ID = fmt.Sprintf("%d", len(orders)+1)
-		order.CreatedAt = time.Now()
-		orders = append(orders, order)
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(order)
-	})
-
 	log.Println("Order Service running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Fatal(http.ListenAndServe(":8080", loggingMiddleware(mux)))
 }

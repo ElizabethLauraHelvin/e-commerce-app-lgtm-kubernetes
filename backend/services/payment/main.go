@@ -4,94 +4,110 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 )
 
 type Payment struct {
-	ID            int       `json:"id"`
-	OrderID       int       `json:"order_id"`
+	ID            string    `json:"id"`
+	OrderID       string    `json:"order_id"`
 	Amount        float64   `json:"amount"`
 	Status        string    `json:"status"`
 	Method        string    `json:"method"`
-	TransactionID string    `json:"transaction_id,omitempty"`
+	TransactionID string    `json:"transaction_id"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
-var payments = []Payment{
-	{ID: 1, OrderID: 1, Amount: 999.99, Status: "completed", Method: "credit_card", TransactionID: "txn_001", CreatedAt: time.Now()},
-	{ID: 2, OrderID: 2, Amount: 59.98, Status: "pending", Method: "bank_transfer", TransactionID: "txn_002", CreatedAt: time.Now()},
+type PaymentRequest struct {
+	OrderID string  `json:"order_id"`
+	Amount  float64 `json:"amount"`
+	Method  string  `json:"method"`
 }
 
-func getPayments(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	if r.Method == http.MethodPost {
-		processPayment(w, r)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(payments)
+var payments []Payment
+var paymentCounter = 0
+
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		log.Printf("[REQUEST] method=%s path=%s remote=%s", r.Method, r.URL.Path, r.RemoteAddr)
+		next.ServeHTTP(w, r)
+		log.Printf("[RESPONSE] method=%s path=%s duration=%s", r.Method, r.URL.Path, time.Since(start))
+	})
 }
 
-func getPaymentByID(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	if id == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, `{"error":"id required"}`)
-		return
+func generateTxnID() string {
+	chars := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, 12)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
 	}
-
-	for _, p := range payments {
-		if fmt.Sprintf("%d", p.ID) == id {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(p)
-			return
-		}
-	}
-
-	w.WriteHeader(http.StatusNotFound)
-	fmt.Fprintf(w, `{"error":"payment not found"}`)
-}
-
-func processPayment(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	var payment Payment
-	if err := json.NewDecoder(r.Body).Decode(&payment); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, `{"error":"invalid request"}`)
-		return
-	}
-
-	payment.ID = len(payments) + 1
-	payment.CreatedAt = time.Now()
-	payment.Status = "completed"
-	payment.TransactionID = fmt.Sprintf("txn_%03d", payment.ID)
-	payments = append(payments, payment)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(payment)
-}
-
-func health(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status":"healthy","service":"payment-service"}`)
+	return "TXN-" + string(b)
 }
 
 func main() {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/health", health)
-	mux.HandleFunc("/payments", getPayments)
-	mux.HandleFunc("/payments/get", getPaymentByID)
-	mux.HandleFunc("/payments/process", processPayment)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"status":"healthy","service":"payment-service"}`)
+	})
+
+	mux.HandleFunc("/payments", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.Method == http.MethodPost {
+			var req PaymentRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				log.Printf("[PAYMENT] Invalid request: %v", err)
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, `{"error":"invalid request"}`)
+				return
+			}
+
+			if req.Method == "" {
+				req.Method = "credit_card"
+			}
+
+			paymentCounter++
+			payment := Payment{
+				ID:            fmt.Sprintf("PAY-%05d", paymentCounter),
+				OrderID:       req.OrderID,
+				Amount:        req.Amount,
+				Status:        "completed",
+				Method:        req.Method,
+				TransactionID: generateTxnID(),
+				CreatedAt:     time.Now(),
+			}
+			payments = append(payments, payment)
+
+			log.Printf("[PAYMENT] Processed payment=%s order=%s amount=%.2f method=%s txn=%s",
+				payment.ID, payment.OrderID, payment.Amount, payment.Method, payment.TransactionID)
+
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(payment)
+			return
+		}
+
+		// GET - filter by order_id if provided
+		orderID := r.URL.Query().Get("order_id")
+		if orderID != "" {
+			var orderPayments []Payment
+			for _, p := range payments {
+				if p.OrderID == orderID {
+					orderPayments = append(orderPayments, p)
+				}
+			}
+			log.Printf("[PAYMENT] Listing payments for order=%s count=%d", orderID, len(orderPayments))
+			json.NewEncoder(w).Encode(orderPayments)
+			return
+		}
+
+		log.Printf("[PAYMENT] Listing all payments count=%d", len(payments))
+		json.NewEncoder(w).Encode(payments)
+	})
 
 	log.Println("Payment Service running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Fatal(http.ListenAndServe(":8080", loggingMiddleware(mux)))
 }
