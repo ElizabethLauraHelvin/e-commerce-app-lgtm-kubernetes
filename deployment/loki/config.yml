@@ -2,6 +2,7 @@ auth_enabled: false
 
 server:
   http_listen_port: 3100
+  grpc_listen_port: 9095
 
 common:
   path_prefix: /loki
@@ -12,19 +13,13 @@ common:
     kvstore:
       store: inmemory
 
-
-  # storage:
-  #   filesystem:
-  #     chunks_directory: /loki/chunks
-  #     rules_directory: /loki/rules
-
 schema_config:
   configs:
     - from: 2026-07-01
       store: tsdb
       object_store: azure
-      # object_store: filesystem
       schema: v13
+
       index:
         prefix: index_
         period: 24h
@@ -34,15 +29,11 @@ storage_config:
     account_name: storagemonitoringlgtm
     account_key: eDHK9EVht2hx9ou7EwUH3icQ3vlsi5zsrtRCGAE/kJXPnOn1Wd2sHONj80Vrvl3iuRKqFrAYjkks+ASttVKaSQ==
     container_name: loki
-    request_timeout: 0
-  
+    request_timeout: 30s
+
   tsdb_shipper:
     active_index_directory: /loki/index
     cache_location: /loki/index_cache
-    cache_ttl: 24h
-    
-  filesystem:
-    directory: /loki/chunks
 
 compactor:
   working_directory: /loki/compactor
@@ -50,8 +41,5 @@ compactor:
 limits_config:
   allow_structured_metadata: true
 
-ruler:
-  storage:
-    type: local
-    local:
-      directory: /loki/rules
+analytics:
+  reporting_enabled: false
