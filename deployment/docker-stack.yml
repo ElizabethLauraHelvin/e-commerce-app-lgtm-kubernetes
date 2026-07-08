@@ -3,7 +3,7 @@ version: "3.9"
 services:
 
   order:
-    image: order-service:v2
+    image: order-service:v3
 
     ports:
       - "8080:8080"
