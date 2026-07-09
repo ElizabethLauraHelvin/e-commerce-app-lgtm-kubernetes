@@ -35,7 +35,7 @@ services:
       - monitoring
 
   loki:
-    image: grafana/loki:2.8.7
+    image: grafana/loki:latest
 
     command:
       - -config.file=/etc/loki/config.yml
