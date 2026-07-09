@@ -53,21 +53,21 @@ func main() {
 		fmt.Fprintf(w, `{"error":"internal server error","message":"this is a test error"}`)
 	})
 
-	productURL, _ := url.Parse("http://product-service.ecommerce.svc.cluster.local:8080")
+	productURL, _ := url.Parse("http://product:8080")
 	mux.HandleFunc("/api/products/", proxyHandler(productURL, "/api"))
 	mux.HandleFunc("/api/products", proxyHandler(productURL, "/api"))
 
-	orderURL, _ := url.Parse("http://order-service.ecommerce.svc.cluster.local:8080")
+	orderURL, _ := url.Parse("http://order:8080")
 	mux.HandleFunc("/api/orders/", proxyHandler(orderURL, "/api"))
 	mux.HandleFunc("/api/orders", proxyHandler(orderURL, "/api"))
 
-	userURL, _ := url.Parse("http://user-service.ecommerce.svc.cluster.local:8080")
+	userURL, _ := url.Parse("http://user:8080")
 	mux.HandleFunc("/api/users/", proxyHandler(userURL, "/api"))
 	mux.HandleFunc("/api/users", proxyHandler(userURL, "/api"))
 	mux.HandleFunc("/api/auth/", proxyHandler(userURL, "/api"))
 	mux.HandleFunc("/api/auth", proxyHandler(userURL, "/api"))
 
-	paymentURL, _ := url.Parse("http://payment-service.ecommerce.svc.cluster.local:8080")
+	paymentURL, _ := url.Parse("http://payment:8080")
 	mux.HandleFunc("/api/payments/", proxyHandler(paymentURL, "/api"))
 	mux.HandleFunc("/api/payments", proxyHandler(paymentURL, "/api"))
 
