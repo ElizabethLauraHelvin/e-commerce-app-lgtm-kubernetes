@@ -61,6 +61,9 @@ services:
   frontend:
     image: frontend-service:v1
 
+    environment:
+      API_URL: http://52.148.70.143:8080/api
+
     ports:
       - "3001:3000"
 
