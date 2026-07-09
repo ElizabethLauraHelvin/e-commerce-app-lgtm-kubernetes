@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"database/sql"
 
 	"github.com/ecommerce/observability"
 )
@@ -34,6 +35,8 @@ var users = []User{
 	{ID: 2, Name: "Jane Smith", Email: "jane@example.com", Password: "password123", Role: "admin"},
 	{ID: 3, Name: "Demo User", Email: "demo@shop.com", Password: "demo123", Role: "customer"},
 }
+
+var dbConn *sql.DB
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -95,6 +98,28 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		Password: req.Password,
 		Role:     "customer",
 	}
+
+	_, err := dbConn.Exec(`
+	INSERT INTO users
+	(id,name,email,password,role)
+	VALUES($1,$2,$3,$4,$5)
+	`,
+		newUser.ID,
+		newUser.Name,
+		newUser.Email,
+		newUser.Password,
+		newUser.Role,
+	)
+
+	if err != nil {
+		log.Printf("Insert failed: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "failed to save user",
+		})
+		return
+	}
+
 	users = append(users, newUser)
 
 	log.Printf("[AUTH] Register success user=%s email=%s", newUser.Name, newUser.Email)
@@ -126,6 +151,41 @@ func health(w http.ResponseWriter, r *http.Request) {
 func main() {
 	mux := http.NewServeMux()
 	db := observability.NewTracedDB("user-service")
+
+	dbConn = ConnectDB()
+
+	_, err := dbConn.Exec(`
+	CREATE TABLE IF NOT EXISTS users(
+		id INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		email TEXT UNIQUE NOT NULL,
+		password TEXT NOT NULL,
+		role TEXT NOT NULL
+	)
+	`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, u := range users {
+		_, err := dbConn.Exec(`
+			INSERT INTO users
+			(id,name,email,password,role)
+			VALUES($1,$2,$3,$4,$5)
+			ON CONFLICT (id) DO NOTHING
+		`,
+			u.ID,
+			u.Name,
+			u.Email,
+			u.Password,
+			u.Role,
+		)
+
+		if err != nil {
+			log.Printf("Insert user failed: %v", err)
+		}
+	}
 
 	mux.HandleFunc("/health", health)
 	mux.HandleFunc("/users", getUsers)

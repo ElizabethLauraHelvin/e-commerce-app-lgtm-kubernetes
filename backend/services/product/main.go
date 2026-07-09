@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -33,9 +34,48 @@ var products = []Product{
 	{ID: "12", Name: "Nintendo Switch OLED", Price: 349.99, Stock: 22, Category: "Gaming", Image: "https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=400&h=400&fit=crop"},
 }
 
+var dbConn *sql.DB
+
 func main() {
 	mux := http.NewServeMux()
 	db := observability.NewTracedDB("product-service")
+
+	dbConn = ConnectDB()
+
+	_, err := dbConn.Exec(`
+	CREATE TABLE IF NOT EXISTS products(
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		price NUMERIC NOT NULL,
+		stock INTEGER NOT NULL,
+		category TEXT NOT NULL,
+		image TEXT NOT NULL
+	)
+	`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, p := range products {
+		_, err := dbConn.Exec(`
+			INSERT INTO products
+			(id,name,price,stock,category,image)
+			VALUES($1,$2,$3,$4,$5,$6)
+			ON CONFLICT (id) DO NOTHING
+		`,
+			p.ID,
+			p.Name,
+			p.Price,
+			p.Stock,
+			p.Category,
+			p.Image,
+		)
+
+		if err != nil {
+			log.Printf("Insert product failed: %v", err)
+		}
+	}
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

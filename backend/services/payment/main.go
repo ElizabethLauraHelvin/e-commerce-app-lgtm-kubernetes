@@ -1,11 +1,13 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/ecommerce/observability"
@@ -27,8 +29,20 @@ type PaymentRequest struct {
 	Method  string  `json:"method"`
 }
 
-var payments []Payment
-var paymentCounter = 0
+var (
+	dbConn *sql.DB
+
+	payments []Payment
+	paymentCounter = 0
+)
+
+
+func getTransactionPrefix() string {
+	if prefix := os.Getenv("TRANSACTION_PREFIX"); prefix != "" {
+		return prefix
+	}
+	return "TXN"
+}
 
 func generateTxnID() string {
 	chars := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -36,12 +50,33 @@ func generateTxnID() string {
 	for i := range b {
 		b[i] = chars[rand.Intn(len(chars))]
 	}
-	return "TXN-" + string(b)
+	return getTransactionPrefix() + "-" + string(b)
 }
 
 func main() {
+
+	rand.Seed(time.Now().UnixNano())
+
 	mux := http.NewServeMux()
 	db := observability.NewTracedDB("payment-service")
+
+	dbConn = ConnectDB()
+
+	_, err := dbConn.Exec(`
+	CREATE TABLE IF NOT EXISTS payments(
+		id TEXT PRIMARY KEY,
+		order_id TEXT NOT NULL,
+		amount NUMERIC NOT NULL,
+		status TEXT NOT NULL,
+		method TEXT NOT NULL,
+		transaction_id TEXT NOT NULL,
+		created_at TIMESTAMP NOT NULL
+	)
+	`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -75,6 +110,30 @@ func main() {
 				CreatedAt:     time.Now(),
 			}
 			payments = append(payments, payment)
+
+			_, err := dbConn.Exec(
+				`
+				INSERT INTO payments
+				(id,order_id,amount,status,method,transaction_id,created_at)
+				VALUES($1,$2,$3,$4,$5,$6,$7)
+				`,
+				payment.ID,
+				payment.OrderID,
+				payment.Amount,
+				payment.Status,
+				payment.Method,
+				payment.TransactionID,
+				payment.CreatedAt,
+			)
+
+			if err != nil {
+				log.Printf("[PAYMENT] Insert failed: %v", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error": "failed to save payment",
+				})
+				return
+			}
 
 			log.Printf("[PAYMENT] Processed payment=%s order=%s amount=%.2f method=%s txn=%s",
 				payment.ID, payment.OrderID, payment.Amount, payment.Method, payment.TransactionID)
