@@ -3,22 +3,26 @@ package main
 import (
 	"database/sql"
 	"log"
+	"os"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func ConnectDB() *sql.DB {
 
-	dsn := "postgres://postgres:postgres123@postgres:5432/ecommerce?sslmode=disable"
+    dsn := os.Getenv("DATABASE_URL")
+    if dsn == "" {
+        log.Fatal("DATABASE_URL is not set")
+    }
 
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		log.Fatal(err)
-	}
+    db, err := sql.Open("pgx", dsn)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-	if err = db.Ping(); err != nil {
-		log.Fatal(err)
-	}
+    if err = db.Ping(); err != nil {
+        log.Fatal(err)
+    }
 
-	return db
+    return db
 }
