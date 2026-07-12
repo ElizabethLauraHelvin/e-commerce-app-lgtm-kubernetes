@@ -1,6 +1,6 @@
 #!/bin/sh
 
-API_URL=${API_URL:-${VITE_API_URL:-http://localhost:8080/api}}
+API_URL=${API_URL:-${VITE_API_URL:-/api}}
 
 cat > /app/dist/config.js <<EOF
 window.__CONFIG__ = {

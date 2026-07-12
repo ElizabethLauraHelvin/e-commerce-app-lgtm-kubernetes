@@ -1,0 +1,10 @@
+auth:
+  postgresPassword: postgres123
+  username: postgres
+  password: postgres123
+  database: ecommerce
+
+primary:
+  persistence:
+    enabled: true
+    size: 10Gi

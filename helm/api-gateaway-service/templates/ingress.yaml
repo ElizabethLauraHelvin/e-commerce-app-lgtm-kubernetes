@@ -11,7 +11,7 @@ metadata:
   {{- end }}
 spec:
   {{- with .Values.ingress.className }}
-  ingressClassName: {{ . }}
+  ingressClassName: nginx
   {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
@@ -29,15 +29,15 @@ spec:
       http:
         paths:
           {{- range .paths }}
-          - path: {{ .path }}
+          - path: /api
             {{- with .pathType }}
-            pathType: {{ . }}
+            pathType: Prefix
             {{- end }}
             backend:
               service:
-                name: {{ include "api-gateaway-service.fullname" $ }}
+                name: api-gateaway-api-gateaway-service
                 port:
-                  number: {{ $.Values.service.port }}
+                  number: 8080
           {{- end }}
     {{- end }}
 {{- end }}

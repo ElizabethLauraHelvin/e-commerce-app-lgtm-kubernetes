@@ -10,7 +10,7 @@ RUN npm install --legacy-peer-deps --no-optional
 COPY . .
 
 # Build dengan environment variables
-ARG VITE_API_URL=http://localhost:8080/api
+ARG VITE_API_URL=/api
 ARG VITE_FARO_COLLECTOR_URL=http://localhost:12347/collect
 ARG VITE_APP_NAME=ecommerce-frontend
 ARG VITE_APP_VERSION=1.0.0

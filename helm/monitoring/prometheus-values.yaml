@@ -1,0 +1,30 @@
+grafana:
+  adminUser: admin
+  adminPassword: admin123
+
+  service:
+    type: ClusterIP
+
+  grafana.ini:
+    server:
+      root_url: http://4.193.251.115/grafana
+      serve_from_sub_path: true
+
+alertmanager:
+  enabled: true
+
+prometheus:
+  service:
+    type: ClusterIP
+
+  prometheusSpec:
+    externalUrl: http://4.193.251.115/prometheus
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeEtcd:
+  enabled: false

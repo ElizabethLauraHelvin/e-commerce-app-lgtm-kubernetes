@@ -5,13 +5,9 @@ metadata:
   name: {{ include "frontend-service.fullname" . }}
   labels:
     {{- include "frontend-service.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
 spec:
   {{- with .Values.ingress.className }}
-  ingressClassName: {{ . }}
+  ingressClassName: nginx
   {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
@@ -29,15 +25,15 @@ spec:
       http:
         paths:
           {{- range .paths }}
-          - path: {{ .path }}
+          - path: /
             {{- with .pathType }}
-            pathType: {{ . }}
+            pathType: Prefix
             {{- end }}
             backend:
               service:
                 name: {{ include "frontend-service.fullname" $ }}
                 port:
-                  number: {{ $.Values.service.port }}
+                  number: 3000
           {{- end }}
     {{- end }}
 {{- end }}
