@@ -121,8 +121,8 @@ loki:
  
   storage_config:
     azure:
-      accountName: stcrossplaneloki
-      accountKey: w5V71mE/38rIwizvy0jIuVLMBlpfGDF69j8XOZAKiVGa0+S2pQVdLCEMlTr2QPl1JSTKm2V4ABsl+AStySvz3Q==
+      account_name: stcrossplaneloki
+      account_key: w5V71mE/38rIwizvy0jIuVLMBlpfGDF69j8XOZAKiVGa0+S2pQVdLCEMlTr2QPl1JSTKm2V4ABsl+AStySvz3Q==
       container_name: loki
     tsdb_shipper:
       active_index_directory: /var/loki/index
