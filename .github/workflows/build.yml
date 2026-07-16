@@ -95,3 +95,4 @@ jobs:
 
       - name: Image digest
         run: echo "✅ ${{ matrix.service.name }} pushed - ${{ steps.meta.outputs.tags }}"
+        
