@@ -1,64 +1,130 @@
-deploymentMode: SingleBinary
-
-singleBinary:
-  replicas: 1
-
-backend:
-  replicas: 0
-
-read:
-  replicas: 0
-
-write:
-  replicas: 0
-
-gateway:
-  enabled: false
-
-lokiCanary:
-  enabled: true
-
 test:
   enabled: false
-
+ 
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+ 
+canary:
+  enabled: false
+ 
+read:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      cpu: 200m
+      memory: 384Mi
+ 
+write:
+  replicas: 1
+  persistence:
+    enabled: true
+    storageClass: managed-csi
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      cpu: 400m
+      memory: 768Mi
+ 
+backend:
+  replicas: 1
+  persistence:
+    enabled: true
+    storageClass: managed-csi
+    size: 10Gi
+  extraVolumes:
+    - name: retention
+      emptyDir: {}
+  extraVolumeMounts:
+    - name: retention
+      mountPath: /data
+  resources:
+    requests:
+      cpu: 150m
+      memory: 384Mi
+    limits:
+      cpu: 400m
+      memory: 768Mi
+ 
+gateway:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+ 
 chunksCache:
-  enabled: false
-
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+ 
 resultsCache:
-  enabled: false
-
-minio:
-  enabled: false
-
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+ 
 loki:
   auth_enabled: false
-
+ 
   commonConfig:
     replication_factor: 1
-
+ 
+  limits_config:
+    retention_period: 1h
+    max_query_lookback: 1h
+    ingestion_rate_mb: 10
+    ingestion_burst_size_mb: 20
+ 
+  compactor:
+    working_directory: /data/compactor
+    compaction_interval: 5m
+    retention_enabled: true
+    retention_delete_delay: 2m
+    delete_request_store: azure
+ 
   schemaConfig:
     configs:
-      - from: "2026-07-01"
+      - from: "2026-01-01"
         store: tsdb
         object_store: azure
         schema: v13
         index:
-          prefix: loki_index_
+          prefix: index_
           period: 24h
-
+ 
   storage:
     type: azure
-
     bucketNames:
       chunks: loki
       ruler: loki
       admin: loki
-
+ 
+  storage_config:
     azure:
-
-      accountName: storagemonitoringlgtm2
-      accountKey: QRyaYm98mXAD9BxHIZIbpNAlp8O5uQtwdrDuOjydsMZhQTmYQxdpyOLVtI58EbnGUXWCpgzHZqM2+AStywhc7Q==
-      useManagedIdentity: false
-
-  limits_config:
-    retention_period: 168h
+      accountName: stcrossplaneloki
+      accountKey: w5V71mE/38rIwizvy0jIuVLMBlpfGDF69j8XOZAKiVGa0+S2pQVdLCEMlTr2QPl1JSTKm2V4ABsl+AStySvz3Q==
+      container_name: loki
+    tsdb_shipper:
+      active_index_directory: /var/loki/index
+      cache_location: /var/loki/index_cache
+      cache_ttl: 24h
