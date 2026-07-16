@@ -7,7 +7,7 @@ grafana:
 
   grafana.ini:
     server:
-      root_url: http://70.153.60.84/grafana
+      root_url: http://57.155.73.187/grafana
       serve_from_sub_path: true
 
 alertmanager:
@@ -18,7 +18,7 @@ prometheus:
     type: ClusterIP
 
   prometheusSpec:
-    externalUrl: http://70.153.60.84/prometheus
+    externalUrl: http://57.155.73.187/prometheus
 
 kubeControllerManager:
   enabled: false
