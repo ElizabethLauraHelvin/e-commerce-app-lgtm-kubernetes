@@ -9,10 +9,6 @@ alloy:
         level = "info"
       }
 
-      // ==========================================
-      // KUBERNETES POD DISCOVERY
-      // ==========================================
-
       discovery.kubernetes "pods" {
         role = "pod"
       }
@@ -42,10 +38,6 @@ alloy:
       }
 
 
-      // ==========================================
-      // LOGS -> LOKI
-      // ==========================================
-
       loki.source.kubernetes "pods" {
         targets    = discovery.relabel.pods.output
         forward_to = [loki.process.logs.receiver]
@@ -73,15 +65,14 @@ alloy:
       }
 
 
-      // ==========================================
-      // METRICS DISCOVERY
-      // ==========================================
+      discovery.kubernetes "pods_metrics" {
+        role = "pod"
+      }
 
       discovery.relabel "metrics" {
         targets = discovery.kubernetes.pods.targets
 
-        // Hanya scrape Pod yang memiliki annotation:
-        // prometheus.io/scrape: "true"
+
 
         rule {
           source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
@@ -89,8 +80,6 @@ alloy:
           action        = "keep"
         }
 
-        // Ambil metrics path
-        // Default biasanya /metrics
 
         rule {
           source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
@@ -98,7 +87,6 @@ alloy:
           target_label  = "__metrics_path__"
         }
 
-        // Bentuk alamat IP_POD:PORT
 
         rule {
           source_labels = [
@@ -111,14 +99,12 @@ alloy:
           target_label = "__address__"
         }
 
-        // Tambahkan namespace sebagai label
 
         rule {
           source_labels = ["__meta_kubernetes_namespace"]
           target_label  = "namespace"
         }
 
-        // Tambahkan pod sebagai label
 
         rule {
           source_labels = ["__meta_kubernetes_pod_name"]
@@ -127,19 +113,10 @@ alloy:
       }
 
 
-      // ==========================================
-      // SCRAPE METRICS
-      // ==========================================
-
       prometheus.scrape "pods" {
         targets    = discovery.relabel.metrics.output
         forward_to = [prometheus.remote_write.mimir.receiver]
       }
-
-
-      // ==========================================
-      // SEND METRICS -> MIMIR
-      // ==========================================
 
       prometheus.remote_write "mimir" {
         endpoint {
