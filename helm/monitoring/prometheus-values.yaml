@@ -20,7 +20,16 @@ grafana:
 
     - name: Mimir
       type: prometheus
-      url: http://mimir-gateway.monitoring.svc.cluster.local
+      uid: mimir
+      access: proxy
+      url: http://mimir-gateway.monitoring.svc.cluster.local/prometheus
+      isDefault: true
+      editable: true
+
+      jsonData:
+        httpMethod: POST
+        prometheusType: Mimir
+        timeInterval: 15s
 
 
 alertmanager:
