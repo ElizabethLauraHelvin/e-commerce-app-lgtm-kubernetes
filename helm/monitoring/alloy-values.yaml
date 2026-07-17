@@ -9,6 +9,10 @@ alloy:
         level = "info"
       }
 
+      // ==========================================
+      // KUBERNETES POD DISCOVERY
+      // ==========================================
+
       discovery.kubernetes "pods" {
         role = "pod"
       }
@@ -18,24 +22,29 @@ alloy:
 
         rule {
           source_labels = ["__meta_kubernetes_namespace"]
-          target_label = "namespace"
+          target_label  = "namespace"
         }
 
         rule {
           source_labels = ["__meta_kubernetes_pod_name"]
-          target_label = "pod"
+          target_label  = "pod"
         }
 
         rule {
           source_labels = ["__meta_kubernetes_pod_container_name"]
-          target_label = "container"
+          target_label  = "container"
         }
 
         rule {
           source_labels = ["__meta_kubernetes_pod_label_app"]
-          target_label = "app"
+          target_label  = "app"
         }
       }
+
+
+      // ==========================================
+      // LOGS -> LOKI
+      // ==========================================
 
       loki.source.kubernetes "pods" {
         targets    = discovery.relabel.pods.output
@@ -60,5 +69,80 @@ alloy:
       loki.write "default" {
         endpoint {
           url = "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+        }
+      }
+
+
+      // ==========================================
+      // METRICS DISCOVERY
+      // ==========================================
+
+      discovery.relabel "metrics" {
+        targets = discovery.kubernetes.pods.targets
+
+        // Hanya scrape Pod yang memiliki annotation:
+        // prometheus.io/scrape: "true"
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+          regex         = "true"
+          action        = "keep"
+        }
+
+        // Ambil metrics path
+        // Default biasanya /metrics
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+          regex         = "(.+)"
+          target_label  = "__metrics_path__"
+        }
+
+        // Bentuk alamat IP_POD:PORT
+
+        rule {
+          source_labels = [
+            "__address__",
+            "__meta_kubernetes_pod_annotation_prometheus_io_port",
+          ]
+
+          regex        = "([^:]+)(?::\\d+)?;(\\d+)"
+          replacement  = "$1:$2"
+          target_label = "__address__"
+        }
+
+        // Tambahkan namespace sebagai label
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+
+        // Tambahkan pod sebagai label
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+      }
+
+
+      // ==========================================
+      // SCRAPE METRICS
+      // ==========================================
+
+      prometheus.scrape "pods" {
+        targets    = discovery.relabel.metrics.output
+        forward_to = [prometheus.remote_write.mimir.receiver]
+      }
+
+
+      // ==========================================
+      // SEND METRICS -> MIMIR
+      // ==========================================
+
+      prometheus.remote_write "mimir" {
+        endpoint {
+          url = "http://mimir-gateway.monitoring.svc.cluster.local/api/v1/push"
         }
       }
