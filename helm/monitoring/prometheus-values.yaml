@@ -65,6 +65,9 @@ grafana:
         # ----------------------------------------------------
         # Service Graph / Node Graph
         # ----------------------------------------------------
+        serviceMap:
+          datasourceUid: mimir
+
         nodeGraph:
           enabled: true
 
