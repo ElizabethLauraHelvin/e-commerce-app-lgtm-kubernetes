@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	
+	_ "net/http/pprof"
 )
 
 func Run(serviceName string, handler http.Handler) {
