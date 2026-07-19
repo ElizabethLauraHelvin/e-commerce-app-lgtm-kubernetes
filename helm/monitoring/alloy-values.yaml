@@ -185,80 +185,78 @@ alloy:
           role = "pod"
         }
 
-        discovery.relabel "pprof_pods" {
-          targets = discovery.kubernetes.pprof_pods.targets
+      discovery.relabel "pprof_pods" {
+        targets = discovery.kubernetes.local_pods.targets
 
-          rule {
-            source_labels = [
-              "__meta_kubernetes_pod_annotation_pyroscope_io_scrape",
-            ]
-            regex  = "true"
-            action = "keep"
-          }
-
-          rule {
-            source_labels = [
-              "__meta_kubernetes_pod_ip",
-              "__meta_kubernetes_pod_annotation_pyroscope_io_port",
-            ]
-            regex        = "(.+);(.+)"
-            replacement  = "$1:$2"
-            target_label = "__address__"
-          }
-
-          rule {
-            source_labels = ["__meta_kubernetes_namespace"]
-            target_label  = "namespace"
-          }
-
-          rule {
-            source_labels = ["__meta_kubernetes_pod_name"]
-            target_label  = "pod"
-          }
-
-          rule {
-            source_labels = ["__meta_kubernetes_pod_label_app"]
-            target_label  = "service_name"
-          }
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          regex         = "ecommerce"
+          action        = "keep"
         }
 
-        pyroscope.scrape "apps" {
-          targets = discovery.relabel.pprof_pods.output
-
-          forward_to = [
-            pyroscope.write.pyroscope.receiver,
-          ]
-
-          profiling_config {
-            profile.process_cpu {
-              enabled = true
-            }
-
-            profile.memory {
-              enabled = true
-            }
-
-            profile.goroutine {
-              enabled = true
-            }
-
-            profile.block {
-              enabled = true
-            }
-
-            profile.mutex {
-              enabled = true
-            }
-          }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          regex         = "frontend-service|postgresql"
+          action        = "drop"
         }
 
-        pyroscope.write "pyroscope" {
-          endpoint {
-            url = "http://pyroscope-distributor.monitoring.svc.cluster.local:4040"
+        rule {
+          source_labels = ["__address__"]
+          regex         = "(.+):\\d+"
+          replacement   = "$1:6060"
+          target_label  = "__address__"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "service"
+        }
+      }
+
+      pyroscope.scrape "apps" {
+        targets    = discovery.relabel.pprof_pods.output
+        forward_to = [pyroscope.write.pyroscope.receiver]
+
+        profiling_config {
+          profile.process_cpu {
+            enabled = true
           }
 
-          external_labels = {
-            "environment" = "production",
-            "cluster"     = "aks-lgtm-laura",
+          profile.memory {
+            enabled = true
+          }
+
+          profile.goroutine {
+            enabled = true
+          }
+
+          profile.block {
+            enabled = true
+          }
+
+          profile.mutex {
+            enabled = true
           }
         }
+      }
+
+      pyroscope.write "pyroscope" {
+        endpoint {
+          url = "http://pyroscope-distributor.monitoring.svc.cluster.local:4040"
+        }
+
+        external_labels = {
+          "environment" = "production",
+          "cluster"     = "aks-lgtm-laura",
+        }
+      }
