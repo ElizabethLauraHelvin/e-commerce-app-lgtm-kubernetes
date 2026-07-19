@@ -39,6 +39,13 @@ tempo:
         span_metrics:
           dimensions:
             - service.name
+    
+    overrides:
+      defaults:
+        metrics_generator:
+          processors:
+            - service-graphs
+            - span-metrics
 
 # ============================================================
 # Distributor
