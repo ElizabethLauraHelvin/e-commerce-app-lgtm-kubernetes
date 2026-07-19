@@ -1,7 +1,5 @@
 pyroscope:
-
-  config: |
-    ---
+  structuredConfig:
     multitenancy_enabled: false
 
     storage:
@@ -12,76 +10,148 @@ pyroscope:
         account_key: "ZYn7bUk4BDhbdSwnbBh3FGRKIQ5LU8F+34Mt30zr1bdxNYJFYWb1WaAiy9ZKw2Ul80SY1LhDCl5b+AStCiYVCA=="
         container_name: "pyroscope"
 
-    memberlist:
-      join_members:
-        - pyroscope-memberlist.monitoring.svc.cluster.local
 
-  
-    server:
-      http_listen_port: 4040
-      grpc_listen_port: 9095
+# ============================================================
+# Architecture
+# V1 = Distributor + Ingester + Querier
+# ============================================================
 
-  extraArgs:
-    log.level: info
+architecture:
+  storage:
+    v1: true
+    v2: false
 
-distributor:
-  replicas: 2
+  deployUnifiedServices: false
 
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-
-    limits:
-      cpu: 500m
-      memory: 512Mi
-
-
-ingester:
-  replicas: 3
-
-  persistence:
+  microservices:
     enabled: true
-    size: 10Gi
 
-  resources:
-    requests:
-      cpu: 200m
-      memory: 512Mi
+    v1:
 
-    limits:
-      cpu: "1"
-      memory: 1Gi
+      # ======================================================
+      # Distributor
+      # Menerima profile dari Alloy
+      # ======================================================
+      distributor:
+        kind: Deployment
+        replicaCount: 2
 
-
-querier:
-  replicas: 2
-
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-
-    limits:
-      cpu: 500m
-      memory: 512Mi
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
 
 
-queryFrontend:
-  replicas: 2
+      # ======================================================
+      # Ingester
+      # ======================================================
+      ingester:
+        kind: StatefulSet
+        replicaCount: 3
 
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
+        terminationGracePeriodSeconds: 600
 
-    limits:
-      cpu: 500m
-      memory: 512Mi
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
 
 
-agent:
-  enabled: false
+      # ======================================================
+      # Querier
+      # ======================================================
+      querier:
+        kind: Deployment
+        replicaCount: 2
+
+        extraArgs:
+          store-gateway.sharding-ring.replication-factor: "2"
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+
+      # ======================================================
+      # Query Frontend
+      # Grafana melakukan query melalui komponen ini
+      # ======================================================
+      query-frontend:
+        kind: Deployment
+        replicaCount: 2
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+
+      # ======================================================
+      # Query Scheduler
+      # ======================================================
+      query-scheduler:
+        kind: Deployment
+        replicaCount: 2
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+
+      # ======================================================
+      # Compactor
+      # Mengelola blocks di Azure Blob Storage
+      # ======================================================
+      compactor:
+        kind: StatefulSet
+        replicaCount: 1
+
+        terminationGracePeriodSeconds: 1200
+
+        persistence:
+          enabled: false
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+
+
+# ============================================================
+# Disable MinIO
+# Karena menggunakan Azure Blob Storage
+# ============================================================
 
 minio:
+  enabled: false
+
+
+# ============================================================
+# Disable Alloy bawaan Pyroscope
+#
+# Kamu sudah punya Alloy sendiri di namespace monitoring
+# yang menangani Loki + Mimir + Tempo + Pyroscope.
+# ============================================================
+
+alloy:
   enabled: false
