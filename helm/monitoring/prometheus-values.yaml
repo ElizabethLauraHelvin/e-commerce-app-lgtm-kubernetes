@@ -70,6 +70,14 @@ grafana:
 
         nodeGraph:
           enabled: true
+      
+    - name: Pyroscope
+      type: grafana-pyroscope-datasource
+      uid: pyroscope
+      access: proxy
+      url: http://pyroscope-query-frontend.monitoring.svc.cluster.local:4040
+      isDefault: false
+      editable: true
 
 
 alertmanager:

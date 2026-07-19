@@ -1,0 +1,87 @@
+pyroscope:
+
+  config: |
+    ---
+    multitenancy_enabled: false
+
+    storage:
+      backend: azure
+
+      azure:
+        account_name: "storagelgtmlaura"
+        account_key: "ZYn7bUk4BDhbdSwnbBh3FGRKIQ5LU8F+34Mt30zr1bdxNYJFYWb1WaAiy9ZKw2Ul80SY1LhDCl5b+AStCiYVCA=="
+        container_name: "pyroscope"
+
+    memberlist:
+      join_members:
+        - pyroscope-memberlist.monitoring.svc.cluster.local
+
+  
+    server:
+      http_listen_port: 4040
+      grpc_listen_port: 9095
+
+  extraArgs:
+    log.level: info
+
+distributor:
+  replicas: 2
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+
+ingester:
+  replicas: 3
+
+  persistence:
+    enabled: true
+    size: 10Gi
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+
+querier:
+  replicas: 2
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+
+queryFrontend:
+  replicas: 2
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+
+agent:
+  enabled: false
+
+minio:
+  enabled: false
