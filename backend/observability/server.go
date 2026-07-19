@@ -10,6 +10,8 @@ func Run(serviceName string, handler http.Handler) {
 	shutdown := InitTracing(serviceName)
 	defer shutdown()
 
+	StartPprof()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -21,4 +23,15 @@ func Run(serviceName string, handler http.Handler) {
 	if err := http.ListenAndServe(":"+port, wrapped); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
+}
+
+
+func StartPprof() {
+	go func() {
+		log.Println("[PPROF] Profiling server running on :6060")
+
+		if err := http.ListenAndServe(":6060", nil); err != nil {
+			log.Printf("[PPROF] Server error: %v", err)
+		}
+	}()
 }

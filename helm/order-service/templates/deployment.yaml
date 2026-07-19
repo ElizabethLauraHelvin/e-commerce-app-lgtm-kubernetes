@@ -13,10 +13,13 @@ spec:
       {{- include "order-service.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        pyroscope.io/scrape: "true"
+        pyroscope.io/port: "6060"
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
+        
       labels:
         {{- include "order-service.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
@@ -44,6 +47,11 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
+            
+            - name: pprof
+              containerPort: 6060 
+              protocol: TCP
+
           env:
             - name: DATABASE_URL
               value: {{ .Values.env.DATABASE_URL | quote }}
