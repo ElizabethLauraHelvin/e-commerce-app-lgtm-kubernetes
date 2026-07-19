@@ -32,6 +32,41 @@ grafana:
       editable: true
       jsonData:
         httpMethod: POST
+    
+    - name: Tempo
+      type: tempo
+      uid: tempo
+      access: proxy
+      url: http://tempo-query-frontend.monitoring.svc.cluster.local:3200
+      isDefault: false
+      editable: true
+
+      jsonData:
+        # ----------------------------------------------------
+        # Trace -> Logs
+        # Menghubungkan Tempo dengan Loki
+        # ----------------------------------------------------
+        tracesToLogsV2:
+          datasourceUid: loki
+          spanStartTimeShift: "-1h"
+          spanEndTimeShift: "1h"
+          filterByTraceID: true
+          filterBySpanID: true
+
+        # ----------------------------------------------------
+        # Trace -> Metrics
+        # Menghubungkan Tempo dengan Mimir
+        # ----------------------------------------------------
+        tracesToMetrics:
+          datasourceUid: mimir
+          spanStartTimeShift: "-1h"
+          spanEndTimeShift: "1h"
+
+        # ----------------------------------------------------
+        # Service Graph / Node Graph
+        # ----------------------------------------------------
+        nodeGraph:
+          enabled: true
 
 
 alertmanager:

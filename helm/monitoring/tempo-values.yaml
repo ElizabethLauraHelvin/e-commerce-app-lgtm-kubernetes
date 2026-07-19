@@ -1,0 +1,176 @@
+# ============================================================
+# Grafana Tempo Distributed
+# Azure Blob Storage Backend
+# Container: tempo
+# ============================================================
+
+tempo:
+  structuredConfig:
+
+    # --------------------------------------------------------
+    # Multitenancy
+    # --------------------------------------------------------
+    multitenancy_enabled: false
+
+    # --------------------------------------------------------
+    # Azure Blob Storage
+    # --------------------------------------------------------
+    storage:
+      trace:
+        backend: azure
+        azure:
+          storage_account_name: "storagelgtmlaura"
+          storage_account_key: "${AZURE_STORAGE_ACCOUNT_KEY}"
+          container_name: "tempo"
+
+
+# ============================================================
+# Distributor
+# Menerima traces dari Grafana Alloy via OTLP
+# ============================================================
+
+distributor:
+  replicas: 2
+
+  extraEnv:
+    - name: AZURE_STORAGE_ACCOUNT_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-azure-storage
+          key: account-key
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+
+# ============================================================
+# Ingester
+# ============================================================
+
+ingester:
+  replicas: 3
+
+  extraEnv:
+    - name: AZURE_STORAGE_ACCOUNT_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-azure-storage
+          key: account-key
+
+  persistence:
+    enabled: true
+    size: 10Gi
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+
+
+# ============================================================
+# Querier
+# Membaca traces
+# ============================================================
+
+querier:
+  replicas: 2
+
+  extraEnv:
+    - name: AZURE_STORAGE_ACCOUNT_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-azure-storage
+          key: account-key
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+
+# ============================================================
+# Query Frontend
+# Endpoint yang digunakan Grafana untuk query Tempo
+# ============================================================
+
+queryFrontend:
+  replicas: 2
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+
+# ============================================================
+# Compactor
+# Mengelola block traces di Azure Blob Storage
+# ============================================================
+
+compactor:
+  replicas: 1
+
+  extraEnv:
+    - name: AZURE_STORAGE_ACCOUNT_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-azure-storage
+          key: account-key
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+
+# ============================================================
+# Metrics Generator
+# Optional:
+# Menghasilkan metrics dari traces
+# ============================================================
+
+metricsGenerator:
+  enabled: false
+
+
+# ============================================================
+# Gateway
+# ============================================================
+
+gateway:
+  enabled: true
+
+  replicas: 2
+
+  service:
+    type: ClusterIP
+
+
+# ============================================================
+# OTLP Trace Receiver
+# Alloy akan mengirim trace ke Tempo melalui OTLP
+# ============================================================
+
+traces:
+  otlp:
+    grpc:
+      enabled: true
+    http:
+      enabled: true
