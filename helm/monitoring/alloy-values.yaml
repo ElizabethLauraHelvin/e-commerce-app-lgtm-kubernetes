@@ -188,7 +188,6 @@ alloy:
         discovery.relabel "pprof_pods" {
           targets = discovery.kubernetes.pprof_pods.targets
 
-          # Hanya scrape pod yang mengaktifkan profiling
           rule {
             source_labels = [
               "__meta_kubernetes_pod_annotation_pyroscope_io_scrape",
@@ -197,7 +196,6 @@ alloy:
             action = "keep"
           }
 
-          # Ambil port pprof dari annotation
           rule {
             source_labels = [
               "__meta_kubernetes_pod_ip",
