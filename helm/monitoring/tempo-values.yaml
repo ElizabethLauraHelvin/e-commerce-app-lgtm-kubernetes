@@ -20,7 +20,7 @@ tempo:
         backend: azure
         azure:
           storage_account_name: "storagelgtmlaura"
-          storage_account_key: "${AZURE_STORAGE_ACCOUNT_KEY}"
+          storage_account_key: "ZYn7bUk4BDhbdSwnbBh3FGRKIQ5LU8F+34Mt30zr1bdxNYJFYWb1WaAiy9ZKw2Ul80SY1LhDCl5b+AStCiYVCA=="
           container_name: "tempo"
 
 
@@ -31,13 +31,6 @@ tempo:
 
 distributor:
   replicas: 2
-
-  extraEnv:
-    - name: AZURE_STORAGE_ACCOUNT_KEY
-      valueFrom:
-        secretKeyRef:
-          name: tempo-azure-storage
-          key: account-key
 
   resources:
     requests:
@@ -54,13 +47,6 @@ distributor:
 
 ingester:
   replicas: 3
-
-  extraEnv:
-    - name: AZURE_STORAGE_ACCOUNT_KEY
-      valueFrom:
-        secretKeyRef:
-          name: tempo-azure-storage
-          key: account-key
 
   persistence:
     enabled: true
@@ -82,13 +68,6 @@ ingester:
 
 querier:
   replicas: 2
-
-  extraEnv:
-    - name: AZURE_STORAGE_ACCOUNT_KEY
-      valueFrom:
-        secretKeyRef:
-          name: tempo-azure-storage
-          key: account-key
 
   resources:
     requests:
@@ -123,13 +102,6 @@ queryFrontend:
 
 compactor:
   replicas: 1
-
-  extraEnv:
-    - name: AZURE_STORAGE_ACCOUNT_KEY
-      valueFrom:
-        secretKeyRef:
-          name: tempo-azure-storage
-          key: account-key
 
   resources:
     requests:
