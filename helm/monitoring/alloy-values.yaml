@@ -186,7 +186,7 @@ alloy:
         }
 
       discovery.relabel "pprof_pods" {
-        targets = discovery.kubernetes.local_pods.targets
+        targets = discovery.kubernetes.pprof_pods.targets
 
         rule {
           source_labels = ["__meta_kubernetes_namespace"]
