@@ -78,6 +78,7 @@ alloy:
         }
       }
 
+      
       faro.receiver "frontend" {
         server {
           listen_address = "0.0.0.0"
@@ -87,9 +88,19 @@ alloy:
         }
 
         output {
-          logs   = [loki.write.default.receiver]
+          logs   = [loki.process.faro_logs.receiver]
           traces = [otelcol.processor.batch.faro_traces.input]
         }
+      }
+
+      loki.process "faro_logs" {
+        stage.static_labels {
+          values = {
+            source = "faro",
+          }
+        }
+
+        forward_to = [loki.write.default.receiver]
       }
 
       otelcol.processor.batch "faro_traces" {
@@ -97,6 +108,7 @@ alloy:
           traces = [otelcol.exporter.otlp.tempo.input]
         }
       }
+
 
       discovery.kubernetes "pods_metrics" {
         role = "pod"
