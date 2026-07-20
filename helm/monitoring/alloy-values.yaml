@@ -96,7 +96,8 @@ alloy:
       loki.process "faro_logs" {
         stage.static_labels {
           values = {
-            source = "faro",
+            source       = "faro",
+            service_name = "ecommerce-frontend",
           }
         }
 
