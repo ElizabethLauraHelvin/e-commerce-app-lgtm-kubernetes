@@ -1,27 +1,25 @@
 mimir:
   structuredConfig:
 
-    multitenancy_enabled: false
+    multitenancy_enabled: true
+
+    common: 
+      storage: 
+        backend: azure 
+        azure: 
+          account_name: "storagelgtmlaura" 
+          account_key: "ZYn7bUk4BDhbdSwnbBh3FGRKIQ5LU8F+34Mt30zr1bdxNYJFYWb1WaAiy9ZKw2Ul80SY1LhDCl5b+AStCiYVCA=="
 
     blocks_storage:
-      backend: azure
       azure:
-        account_name: "storagelgtmlaura"
-        account_key: "ZYn7bUk4BDhbdSwnbBh3FGRKIQ5LU8F+34Mt30zr1bdxNYJFYWb1WaAiy9ZKw2Ul80SY1LhDCl5b+AStCiYVCA=="
         container_name: "mimir-blocks"
 
     ruler_storage:
-      backend: azure
       azure:
-        account_name: "storagelgtmlaura"
-        account_key: "ZYn7bUk4BDhbdSwnbBh3FGRKIQ5LU8F+34Mt30zr1bdxNYJFYWb1WaAiy9ZKw2Ul80SY1LhDCl5b+AStCiYVCA=="
         container_name: "mimir-ruler"
 
     alertmanager_storage:
-      backend: azure
       azure:
-        account_name: "storagelgtmlaura"
-        account_key: "ZYn7bUk4BDhbdSwnbBh3FGRKIQ5LU8F+34Mt30zr1bdxNYJFYWb1WaAiy9ZKw2Ul80SY1LhDCl5b+AStCiYVCA=="
         container_name: "mimir-alertmanager"
 
     limits:

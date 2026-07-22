@@ -23,15 +23,28 @@ grafana:
       isDefault: false
       editable: true
 
-    - name: Mimir
+
+    - name: Mimir-Pods
       type: prometheus
-      uid: mimir
       access: proxy
       url: http://mimir-gateway.monitoring.svc.cluster.local/prometheus
-      isDefault: true
-      editable: true
       jsonData:
         httpMethod: POST
+        prometheusType: Mimir
+        httpHeaderName1: X-Scope-OrgID
+      secureJsonData:
+        httpHeaderValue1: pods
+
+    - name: Mimir-Nodes
+      type: prometheus
+      access: proxy
+      url: http://mimir-gateway.monitoring.svc.cluster.local/prometheus
+      jsonData:
+        httpMethod: POST
+        prometheusType: Mimir
+        httpHeaderName1: X-Scope-OrgID
+      secureJsonData:
+        httpHeaderValue1: nodes
     
     - name: Tempo
       type: tempo
