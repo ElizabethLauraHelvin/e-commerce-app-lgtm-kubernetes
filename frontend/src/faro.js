@@ -17,7 +17,7 @@ export function initFaro() {
   // Jika tidak tersedia, gunakan endpoint Faro Alloy sebagai fallback.
   const collectorUrl =
     config.FARO_COLLECTOR_URL ||
-    'http://20.239.125.172/faro/collect'
+    'http://20.195.104.5/faro/collect'
 
   faroInstance = initializeFaro({
     url: collectorUrl,
