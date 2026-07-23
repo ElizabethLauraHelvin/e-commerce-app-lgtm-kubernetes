@@ -121,8 +121,8 @@ loki:
  
   storage_config:
     azure:
-      account_name: storagelgtmlaura
-      account_key: ZYn7bUk4BDhbdSwnbBh3FGRKIQ5LU8F+34Mt30zr1bdxNYJFYWb1WaAiy9ZKw2Ul80SY1LhDCl5b+AStCiYVCA==
+      account_name: storagelgtmlaurajaq
+      account_key: 7TsC+maT5SNn3BEJS9SkukAEDNlnruO60Ij0CC7Q6c/wrgWE+KTFE6e6E6OkKzrkdsyLlF0nl2cE+AStfswdig==
       container_name: loki
     tsdb_shipper:
       active_index_directory: /var/loki/index
