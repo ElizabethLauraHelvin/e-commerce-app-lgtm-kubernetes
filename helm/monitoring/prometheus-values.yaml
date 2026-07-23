@@ -90,6 +90,7 @@ grafana:
           datasourceUid: mimir-traces
 
         nodeGraph:
+          enabled: true
       
     - name: Pyroscope
       type: grafana-pyroscope-datasource
