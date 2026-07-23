@@ -46,6 +46,25 @@ grafana:
       secureJsonData:
         httpHeaderValue1: nodes
     
+    # ==========================================
+    # Mimir - Tempo Generated Metrics
+    # ==========================================
+    - name: Mimir-Traces
+      type: prometheus
+      uid: mimir-traces
+      access: proxy
+      url: http://mimir-gateway.monitoring.svc.cluster.local/prometheus
+      editable: true
+      jsonData:
+        httpMethod: POST
+        prometheusType: Mimir
+        httpHeaderName1: X-Scope-OrgID
+      secureJsonData:
+        httpHeaderValue1: traces
+
+    # ==========================================
+    # Tempo
+    # ==========================================
     - name: Tempo
       type: tempo
       uid: tempo
@@ -55,10 +74,6 @@ grafana:
       editable: true
 
       jsonData:
-        # ----------------------------------------------------
-        # Trace -> Logs
-        # Menghubungkan Tempo dengan Loki
-        # ----------------------------------------------------
         tracesToLogsV2:
           datasourceUid: loki
           spanStartTimeShift: "-1h"
@@ -66,23 +81,15 @@ grafana:
           filterByTraceID: true
           filterBySpanID: true
 
-        # ----------------------------------------------------
-        # Trace -> Metrics
-        # Menghubungkan Tempo dengan Mimir
-        # ----------------------------------------------------
         tracesToMetrics:
-          datasourceUid: mimir
+          datasourceUid: mimir-traces
           spanStartTimeShift: "-1h"
           spanEndTimeShift: "1h"
 
-        # ----------------------------------------------------
-        # Service Graph / Node Graph
-        # ----------------------------------------------------
         serviceMap:
-          datasourceUid: mimir
+          datasourceUid: mimir-traces
 
         nodeGraph:
-          enabled: true
       
     - name: Pyroscope
       type: grafana-pyroscope-datasource
